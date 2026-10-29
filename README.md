@@ -18,6 +18,14 @@ A production-minded portfolio project built to empower users to upload, summariz
 - **AI Integration:** Google Gemini API
 - **Testing:** Vitest (Unit/Integration) & Playwright (E2E)
 
+## Notes on Gemini AI Implementation
+
+The application uses `@google/genai` to generate insights. Features include:
+- Generating structured JSON insights using Zod schema verification.
+- Document chunking for processing long texts while respecting token limits.
+- Robust error handling for rate limiting and API timeouts.
+- A deterministic mock provider for testing without consuming API quota or running tests with missing API keys.
+
 ## Setup Instructions
 
 1. **Clone the repository:**

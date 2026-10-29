@@ -3,7 +3,9 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, File, X, UploadCloud, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, File, X, UploadCloud, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { InsightsView } from './InsightsView';
 import { cn } from '@/lib/utils';
 
 type FileStatus = 'idle' | 'uploading' | 'processing' | 'success' | 'error';
@@ -16,6 +18,7 @@ interface FileUploadState {
   error?: string;
   documentId?: string;
   requiresOcr?: boolean;
+  showInsights?: boolean;
 }
 
 export function FileUpload() {
@@ -120,6 +123,10 @@ export function FileUpload() {
     setUploads(prev => prev.filter(u => u.id !== id));
   };
 
+  const toggleInsights = (id: string) => {
+    setUploads(prev => prev.map(u => u.id === id ? { ...u, showInsights: !u.showInsights } : u));
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto space-y-6">
       <div
@@ -177,15 +184,33 @@ export function FileUpload() {
                         {upload.error}
                       </p>
                     ) : upload.status === 'success' ? (
-                      <div className="space-y-1">
-                        <p className="text-xs text-green-600 flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Processed successfully
-                        </p>
-                        {upload.requiresOcr && (
-                           <p className="text-xs text-yellow-600 flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded w-fit border border-yellow-200">
-                             Scanned document detected. OCR is required for full text extraction.
-                           </p>
+                      <div className="space-y-3 w-full">
+                        <div className="space-y-1">
+                          <p className="text-xs text-green-600 flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Processed successfully
+                          </p>
+                          {upload.requiresOcr && (
+                             <p className="text-xs text-yellow-600 flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded w-fit border border-yellow-200">
+                               Scanned document detected. OCR is required for full text extraction.
+                             </p>
+                          )}
+                        </div>
+                        {upload.documentId && !upload.requiresOcr && (
+                           <div className="pt-2 border-t border-gray-100">
+                             <Button
+                               variant="ghost"
+                               size="sm"
+                               onClick={() => toggleInsights(upload.id)}
+                               className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 -ml-2"
+                             >
+                               {upload.showInsights ? (
+                                 <><ChevronUp className="mr-1 h-4 w-4" /> Hide Insights</>
+                               ) : (
+                                 <><ChevronDown className="mr-1 h-4 w-4" /> View AI Insights</>
+                               )}
+                             </Button>
+                           </div>
                         )}
                       </div>
                     ) : (
@@ -196,6 +221,11 @@ export function FileUpload() {
                     )}
                   </div>
                 </CardContent>
+                {upload.status === 'success' && upload.showInsights && upload.documentId && (
+                   <div className="p-4 bg-gray-50/50 border-t border-gray-100">
+                     <InsightsView documentId={upload.documentId} />
+                   </div>
+                )}
               </Card>
             ))}
           </div>

@@ -1,9 +1,32 @@
 
-> test_dir@0.1.0 start
-> next start
+> test_dir@0.1.0 dev
+> next dev
 
   ▲ Next.js 14.2.35
   - Local:        http://localhost:3000
 
  ✓ Starting...
- ✓ Ready in 429ms
+ ✓ Ready in 1824ms
+ ○ Compiling / ...
+ ✓ Compiled / in 7.4s (740 modules)
+ ✓ Compiled in 928ms (353 modules)
+ GET / 200 in 8411ms
+ GET / 200 in 71ms
+ ○ Compiling /api/upload ...
+ ✓ Compiled /api/upload in 2.6s (753 modules)
+ POST /api/upload 200 in 3473ms
+ ○ Compiling /api/documents/[id]/insights ...
+ ✓ Compiled /api/documents/[id]/insights in 3.3s (1003 modules)
+Using MockAIProvider because GEMINI_API_KEY is not set or is a placeholder.
+ POST /api/documents/405a263e-80d9-4eab-8111-b0ef4c65bc44/insights 200 in 6012ms
+ GET / 200 in 175ms
+ POST /api/upload 200 in 587ms
+ POST /api/documents/405a263e-80d9-4eab-8111-b0ef4c65bc44/insights 200 in 24ms
+ GET / 200 in 62ms
+ POST /api/upload 200 in 517ms
+ POST /api/documents/405a263e-80d9-4eab-8111-b0ef4c65bc44/insights 200 in 30ms
+ ✓ Compiled in 773ms (731 modules)
+ ⨯ Module not found: Error: /app/package.json (directory description file): Error: /app/package.json (directory description file): Error: /app/package.json (directory description file): Error: No file content
+ ✓ Compiled in 312ms (353 modules)
+ ✓ Compiled in 211ms (353 modules)
+ ✓ Compiled in 895ms (733 modules)
