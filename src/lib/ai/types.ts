@@ -26,10 +26,38 @@ export interface GeneratedInsights {
   metadata: InsightMetadata;
 }
 
+export const CitationSchema = z.object({
+  documentId: z.string().describe("The ID of the document."),
+  documentName: z.string().describe("The name or title of the document."),
+  pageNumber: z.number().optional().describe("The page number where the evidence is found, if available."),
+  chunkId: z.string().describe("The ID of the specific text chunk used as evidence."),
+  excerpt: z.string().describe("The relevant excerpt from the source text supporting the claim.")
+});
+export type Citation = z.infer<typeof CitationSchema>;
+
+export const AnswerResponseSchema = z.object({
+  answer: z.string().describe("The generated answer to the user's question."),
+  citations: z.array(CitationSchema).describe("List of citations supporting factual claims in the answer."),
+  insufficientEvidence: z.boolean().describe("True if the provided documents do not contain sufficient evidence to fully answer the question.")
+});
+export type AnswerResponse = z.infer<typeof AnswerResponseSchema>;
+
+export interface VectorChunk {
+  id: string;
+  documentId: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  documentName?: string;
+}
+
 export interface AIProvider {
   generateInsights(
     text: string,
     documentId: string,
     contentHash: string
   ): Promise<GeneratedInsights>;
+
+  generateEmbeddings(texts: string[]): Promise<number[][]>;
+
+  generateAnswer(query: string, retrievedChunks: VectorChunk[]): Promise<AnswerResponse>;
 }

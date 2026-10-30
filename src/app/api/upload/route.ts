@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processDocument } from '@/lib/document-processing/parser';
 import { storeDocument } from '@/lib/document-processing/storage';
+import { indexDocument } from '@/lib/document-processing/indexer';
+import { GeminiAIProvider } from '@/lib/ai/gemini-provider';
+import { MockAIProvider } from '@/lib/ai/mock-provider';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
@@ -57,6 +60,21 @@ export async function POST(req: NextRequest) {
       text: parsedData.text,
       requiresOcr: parsedData.requiresOcr,
       pageCount: parsedData.pageCount
+    });
+
+    // Fire and forget indexing
+    // Use MockProvider if demo mode or missing API key
+    const useMock = process.env.USE_DEMO_MODE === 'true' || !process.env.GEMINI_API_KEY;
+    const provider = useMock ? new MockAIProvider() : new GeminiAIProvider();
+
+    // In a real app, userId comes from session. Hardcoding for demo.
+    const mockUserId = '00000000-0000-0000-0000-000000000000';
+
+    indexDocument(documentRecord.id, {
+      aiProvider: provider,
+      userId: mockUserId
+    }).catch(err => {
+      console.error('Background indexing failed:', err);
     });
 
     return NextResponse.json({

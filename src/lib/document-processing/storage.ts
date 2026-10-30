@@ -1,5 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
+export type IndexingStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 export interface DocumentRecord {
   id: string;
   filename: string;
@@ -9,6 +11,9 @@ export interface DocumentRecord {
   requiresOcr: boolean;
   pageCount?: number;
   uploadedAt: Date;
+  indexingStatus: IndexingStatus;
+  contentHash?: string;
+  configVersion?: string;
 }
 
 export interface DocumentInput {
@@ -50,11 +55,20 @@ export async function storeDocument(input: DocumentInput): Promise<DocumentRecor
   const record: DocumentRecord = {
     id,
     ...input,
-    uploadedAt: new Date()
+    uploadedAt: new Date(),
+    indexingStatus: 'pending'
   };
 
   store.set(id, record);
   return record;
+}
+
+export async function updateDocumentStatus(id: string, updates: Partial<Pick<DocumentRecord, 'indexingStatus' | 'contentHash' | 'configVersion'>>): Promise<void> {
+  const doc = await getDocument(id);
+  if (doc) {
+    Object.assign(doc, updates);
+    store.set(id, doc);
+  }
 }
 
 export async function getDocument(id: string): Promise<DocumentRecord | null> {
