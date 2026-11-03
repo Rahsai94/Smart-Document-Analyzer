@@ -4,6 +4,7 @@ import { GeminiAIProvider } from '@/lib/ai/gemini-provider';
 import { MockAIProvider } from '@/lib/ai/mock-provider';
 import { GeneratedInsights } from '@/lib/ai/types';
 import crypto from 'crypto';
+import { createClient } from '@/lib/supabase/server';
 
 // In-memory cache for demo
 declare global {
@@ -30,6 +31,18 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
+    const isDemoMode = process.env.USE_DEMO_MODE === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    let userId = null;
+
+    if (!isDemoMode) {
+      const supabase = createClient();
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userId = user.id;
+    }
+
     const documentId = params.id;
     const document = await getDocument(documentId);
 
@@ -42,20 +55,64 @@ export async function POST(
     }
 
     const contentHash = crypto.createHash('sha256').update(document.text).digest('hex');
-    const cacheKey = `${documentId}-${contentHash}`;
 
-    // Return cached insights if available
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      return NextResponse.json(cached);
+    if (!isDemoMode && userId) {
+        const supabase = createClient();
+        const { data: existingInsights } = await supabase
+            .from('document_insights')
+            .select('*')
+            .eq('document_id', documentId)
+            .eq('content_hash', contentHash)
+            .single();
+
+        if (existingInsights) {
+            const cached: GeneratedInsights = {
+                executiveSummary: existingInsights.summary,
+                detailedSummary: existingInsights.summary, // using summary for both in db schema for simplicity
+                insights: {
+                    keyTakeaways: [],
+                    importantDates: existingInsights.dates || [],
+                    names: existingInsights.entities || [],
+                    organizations: [],
+                    numericalFigures: [],
+                    actionItems: []
+                },
+                metadata: {
+                    documentId,
+                    contentHash,
+                    promptVersion: "1",
+                    modelIdentifier: "db",
+                    generatedAt: new Date().toISOString()
+                }
+            };
+            return NextResponse.json(cached);
+        }
+    } else {
+        const cacheKey = `${documentId}-${contentHash}`;
+        const cached = cache.get(cacheKey);
+        if (cached) {
+            return NextResponse.json(cached);
+        }
     }
 
     const provider = getProvider();
 
     const insights = await provider.generateInsights(document.text, documentId, contentHash);
 
-    // Cache the result
-    cache.set(cacheKey, insights);
+    if (!isDemoMode && userId) {
+        const supabase = createClient();
+        await supabase.from('document_insights').insert({
+            document_id: documentId,
+            user_id: userId,
+            summary: insights.executiveSummary,
+            entities: insights.insights.names,
+            dates: insights.insights.importantDates,
+            content_hash: contentHash
+        });
+    } else {
+        const cacheKey = `${documentId}-${contentHash}`;
+        cache.set(cacheKey, insights);
+    }
 
     return NextResponse.json(insights);
   } catch (error: unknown) {

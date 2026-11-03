@@ -1,8 +1,9 @@
-import { getDocument, updateDocumentStatus } from './storage';
+import { getDocument, updateDocumentStatus, IndexingStatus } from './storage';
 import { chunkText } from './chunker';
 import { VectorStore } from './vector-store';
 import { AIProvider } from '../ai/types';
 import { createHash } from 'crypto';
+import { createServiceClient } from '../supabase/service';
 
 export interface IndexerConfig {
   aiProvider: AIProvider;
@@ -26,7 +27,29 @@ export async function indexDocument(documentId: string, config: IndexerConfig): 
     return;
   }
 
-  await updateDocumentStatus(documentId, { indexingStatus: 'processing' });
+  const isDemoMode = process.env.USE_DEMO_MODE === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  let customClient = undefined;
+  if (!isDemoMode) {
+      customClient = createServiceClient();
+  }
+
+  // Need to bypass cookie-based auth since this is a background process
+  const updateStatus = async (status: IndexingStatus, extra?: { contentHash?: string, configVersion?: string }) => {
+      if (isDemoMode) {
+          await updateDocumentStatus(documentId, { indexingStatus: status, ...extra });
+      } else if (customClient) {
+          await customClient
+            .from('documents')
+            .update({
+                indexing_status: status,
+                ...(extra?.contentHash ? { content_hash: extra.contentHash } : {}),
+                ...(extra?.configVersion ? { config_version: extra.configVersion } : {})
+            })
+            .eq('id', documentId);
+      }
+  };
+
+  await updateStatus('processing');
 
   const maxRetries = config.maxRetries ?? 3;
   let attempt = 0;
@@ -39,7 +62,7 @@ export async function indexDocument(documentId: string, config: IndexerConfig): 
       });
 
       if (chunks.length === 0) {
-        await updateDocumentStatus(documentId, { indexingStatus: 'completed', contentHash, configVersion: CONFIG_VERSION });
+        await updateStatus('completed', { contentHash, configVersion: CONFIG_VERSION });
         return;
       }
 
@@ -48,7 +71,7 @@ export async function indexDocument(documentId: string, config: IndexerConfig): 
       const embeddings = await config.aiProvider.generateEmbeddings(texts);
 
       // Store in vector database
-      const vectorStore = new VectorStore();
+      const vectorStore = new VectorStore(customClient);
 
       // Inject document name into chunk metadata to help AI citations
       const chunksWithMetadata = chunks.map(c => ({
@@ -68,14 +91,14 @@ export async function indexDocument(documentId: string, config: IndexerConfig): 
         configVersion: CONFIG_VERSION
       });
 
-      await updateDocumentStatus(documentId, { indexingStatus: 'completed', contentHash, configVersion: CONFIG_VERSION });
+      await updateStatus('completed', { contentHash, configVersion: CONFIG_VERSION });
       return; // Success
     } catch (error) {
       attempt++;
       console.error(`Indexing attempt ${attempt} failed for document ${documentId}:`, error);
 
       if (attempt >= maxRetries) {
-        await updateDocumentStatus(documentId, { indexingStatus: 'failed' });
+        await updateStatus('failed');
         throw new Error(`Failed to index document after ${maxRetries} attempts`);
       }
 
