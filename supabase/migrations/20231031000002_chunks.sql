@@ -4,8 +4,8 @@ create extension if not exists vector;
 -- Create the document_chunks table
 create table if not exists public.document_chunks (
     id uuid primary key default gen_random_uuid(),
-    document_id uuid not null,
-    user_id uuid not null,
+    document_id uuid not null references public.documents(id) on delete cascade,
+    user_id uuid not null references auth.users(id) on delete cascade,
     content text not null,
     embedding vector(768), -- Gemini text-embedding-004 outputs 768 dimensions by default
     metadata jsonb not null default '{}'::jsonb,

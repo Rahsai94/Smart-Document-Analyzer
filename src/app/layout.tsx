@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import Link from 'next/link';
 import { cn } from "@/lib/utils";
+import AuthButton from '@/components/auth/AuthButton';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -24,9 +25,10 @@ export default function RootLayout({
             <Link href="/" className="text-xl font-bold">
               Smart Document Analyzer
             </Link>
-            <nav className="flex gap-4">
+            <nav className="flex gap-4 items-center">
               <Link href="#" className="text-gray-600 hover:text-black">Features</Link>
               <Link href="#" className="text-gray-600 hover:text-black">Pricing</Link>
+              <AuthButton />
             </nav>
           </div>
         </header>

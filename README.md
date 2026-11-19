@@ -68,3 +68,30 @@ The application uses `@google/genai` to generate insights and answers. Features 
    - Linting: \`npm run lint\`
    - Unit Tests: \`npm run test:unit\`
    - E2E Tests: \`npm run test:e2e\`
+
+## Supabase Integration (Auth, Database, Storage)
+
+### Setup Instructions
+
+1.  **Configure Environment Variables:**
+    Update your `.env.local` file with the following variables:
+    \`\`\`bash
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+    USE_DEMO_MODE=false # Set to true to bypass authentication and use in-memory mock data
+    \`\`\`
+
+2.  **Run Migrations:**
+    Apply the database schema using the Supabase CLI (if you have it installed and linked):
+    \`\`\`bash
+    supabase db push
+    \`\`\`
+    Alternatively, run the SQL files located in `supabase/migrations/` directly in your Supabase SQL Editor.
+
+### Security and Storage Decisions
+
+*   **Authentication:** The application leverages `@supabase/ssr` to handle Next.js App Router authentication securely using cookies. Protected API routes and pages will redirect to `/login` if a valid session is not detected (unless `USE_DEMO_MODE` is enabled).
+*   **Database (Row Level Security - RLS):** RLS policies are strictly enforced on all tables (`documents`, `document_chunks`). Users can only insert, select, update, or delete records that match their `user_id`. This prevents cross-user data leakage.
+*   **Storage:** A private storage bucket named `documents` is used to persist uploaded files. RLS policies on the `storage.objects` table ensure that users can only upload files to a folder corresponding to their `user_id` and can only read their own files.
+*   **Service Role Key:** The `SUPABASE_SERVICE_ROLE_KEY` is kept server-side and is only used when absolute administrative access is necessary. Most database interactions utilize the user's session token and RLS.

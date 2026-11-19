@@ -35,15 +35,16 @@ export class VectorStore {
   private supabase: SupabaseClient | null = null;
   private useDemoMode = false;
 
-  constructor() {
+  constructor(customClient?: SupabaseClient) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    // Fallback to demo mode if no valid keys are present or explicitly requested
     if (!supabaseUrl || !supabaseKey || process.env.USE_DEMO_MODE === 'true') {
       this.useDemoMode = true;
     } else {
-      this.supabase = createClient(supabaseUrl, supabaseKey);
+      // If a custom client (e.g. from createServerClient) is provided, use it
+      // Otherwise fallback to the generic client using the available key.
+      this.supabase = customClient || createClient(supabaseUrl, supabaseKey);
     }
   }
 

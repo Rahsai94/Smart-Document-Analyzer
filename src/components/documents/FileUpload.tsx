@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { AlertCircle, File, X, UploadCloud, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertCircle, File, X, UploadCloud, CheckCircle2, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InsightsView } from './InsightsView';
 import { cn } from '@/lib/utils';
@@ -46,7 +46,7 @@ export function FileUpload() {
     abortControllers.current[uploadState.id] = controller;
 
     try {
-      setUploads(prev => prev.map(u => u.id === uploadState.id ? { ...u, status: 'uploading', progress: 50 } : u));
+      setUploads(prev => prev.map(u => u.id === uploadState.id ? { ...u, status: 'uploading', progress: 50, error: undefined } : u));
 
       const response = await fetch('/api/upload', {
         method: 'POST',
@@ -123,6 +123,10 @@ export function FileUpload() {
     setUploads(prev => prev.filter(u => u.id !== id));
   };
 
+  const retryUpload = (uploadState: FileUploadState) => {
+      uploadFile(uploadState);
+  };
+
   const toggleInsights = (id: string) => {
     setUploads(prev => prev.map(u => u.id === id ? { ...u, showInsights: !u.showInsights } : u));
   };
@@ -179,10 +183,15 @@ export function FileUpload() {
                     </div>
 
                     {upload.status === 'error' ? (
-                      <p className="text-xs text-red-500 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        {upload.error}
-                      </p>
+                      <div className="flex items-center justify-between">
+                          <p className="text-xs text-red-500 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {upload.error}
+                          </p>
+                          <Button variant="ghost" size="sm" onClick={() => retryUpload(upload)} className="h-6 px-2 text-xs">
+                              <RefreshCw className="h-3 w-3 mr-1" /> Retry
+                          </Button>
+                      </div>
                     ) : upload.status === 'success' ? (
                       <div className="space-y-3 w-full">
                         <div className="space-y-1">

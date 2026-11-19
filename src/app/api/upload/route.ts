@@ -4,6 +4,7 @@ import { storeDocument } from '@/lib/document-processing/storage';
 import { indexDocument } from '@/lib/document-processing/indexer';
 import { GeminiAIProvider } from '@/lib/ai/gemini-provider';
 import { MockAIProvider } from '@/lib/ai/mock-provider';
+import { createClient } from '@/lib/supabase/server';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_MIME_TYPES = [
@@ -35,6 +36,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unsupported file type. Please upload PDF, DOCX, or TXT.' }, { status: 400 });
     }
 
+    const isDemoMode = process.env.USE_DEMO_MODE === 'true' || !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    let userId = '00000000-0000-0000-0000-000000000000';
+    let uploadedFilePath = undefined;
+
+    if (!isDemoMode) {
+      const supabase = createClient();
+      const { data: { user }, error } = await supabase.auth.getUser();
+
+      if (error || !user) {
+         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      userId = user.id;
+
+      // Upload file to supabase storage
+      const buffer = Buffer.from(await file.arrayBuffer());
+      uploadedFilePath = `${user.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(uploadedFilePath, buffer, {
+              contentType: file.type,
+              upsert: false
+          });
+      if (uploadError) {
+          console.error("Storage upload error", uploadError);
+          return NextResponse.json({ error: 'Failed to upload document to storage.' }, { status: 500 });
+      }
+    }
+
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Magic Bytes Verification (File Signature)
@@ -52,27 +81,25 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to parse document. The file might be malformed or corrupted.' }, { status: 422 });
     }
 
-    // Store in demo storage
+    // Store in demo storage or supabase
     const documentRecord = await storeDocument({
       filename: file.name,
       mimeType: file.type,
       size: file.size,
       text: parsedData.text,
       requiresOcr: parsedData.requiresOcr,
-      pageCount: parsedData.pageCount
-    });
+      pageCount: parsedData.pageCount,
+      storagePath: uploadedFilePath
+    }, userId);
 
     // Fire and forget indexing
     // Use MockProvider if demo mode or missing API key
     const useMock = process.env.USE_DEMO_MODE === 'true' || !process.env.GEMINI_API_KEY;
     const provider = useMock ? new MockAIProvider() : new GeminiAIProvider();
 
-    // In a real app, userId comes from session. Hardcoding for demo.
-    const mockUserId = '00000000-0000-0000-0000-000000000000';
-
     indexDocument(documentRecord.id, {
       aiProvider: provider,
-      userId: mockUserId
+      userId: userId
     }).catch(err => {
       console.error('Background indexing failed:', err);
     });
